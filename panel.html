@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LED Panel</title>
+
+<style>
+body{
+    margin:0;
+    background:black;
+    color:lime;
+    font-family:monospace;
+}
+
+/* horní lišta */
+.top{
+    background:#111;
+    padding:10px;
+    color:white;
+    display:flex;
+    justify-content:space-between;
+}
+
+/* panel */
+.panel{
+    padding:10px;
+}
+
+/* tlačítka */
+button{
+    background:#222;
+    color:white;
+    border:1px solid #444;
+    padding:8px;
+    margin:5px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="top">
+    <div>LED PANEL SYSTEM</div>
+    <button onclick="window.location.href='index.html'">Zpět</button>
+</div>
+
+<div class="panel">
+
+    <h2>Aktivní panel</h2>
+
+    <!-- SEM PATŘÍ TVŮJ PŮVODNÍ KÓD -->
+    <div id="display">
+        🟢 SYSTÉM BĚŽÍ<br>
+        🚌 Linka: 213<br>
+        🚏 Spoj: 5<br>
+        👨‍✈️ Řidič: Aktivní
+    </div>
+
+    <hr>
+
+    <button onclick="addDot()">Přidat bod</button>
+    <button onclick="clearDots()">Vymazat</button>
+
+    <div id="dots"></div>
+
+</div>
+
+<script>
+let dots = 0;
+
+function addDot(){
+    dots++;
+    document.getElementById("dots").innerHTML += "• ";
+}
+
+function clearDots(){
+    dots = 0;
+    document.getElementById("dots").innerHTML = "";
+}
+</script>
+
+</body>
+</html>
