@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHD DP PANEL FINAL</title>
+<title>MHD DP APNG PANEL</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
@@ -42,8 +42,6 @@ button{
     color:#00ff66;
     border:1px solid #333;
     cursor:pointer;
-    font-family:'Press Start 2P';
-    font-size:10px;
 }
 
 .main{
@@ -68,20 +66,22 @@ canvas{
 <input id="dir" placeholder="Směr">
 <textarea id="stops" placeholder="Krnov;Bruntál;Opava"></textarea>
 
-<input id="speed" type="number" placeholder="Speed">
-
-<input id="duration" type="number" placeholder="Video délka (sekundy)" value="5">
+<input id="speed" type="number" placeholder="speed (1–10)">
+<input id="frames" type="number" placeholder="frames (např. 20)" value="20">
 
 <button onclick="setData()">➕ Nastavit</button>
 
 <button onclick="downloadPNG()">⬇ PNG</button>
-<button onclick="exportMP4()">🎞 MP4 export</button>
+<button onclick="exportAPNG()">🎞 APNG export</button>
 
 </div>
 
 <div class="main">
 <canvas id="c" width="900" height="450"></canvas>
 </div>
+
+<!-- APNG encoder -->
+<script src="https://cdn.jsdelivr.net/npm/apng-js@2.0.0/dist/apng.min.js"></script>
 
 <script>
 
@@ -93,6 +93,7 @@ let t = 0;
 
 /* SET DATA */
 function setData(){
+
     data = {
         line: line.value || "0",
         dir: dir.value || "",
@@ -108,7 +109,7 @@ function draw(offset=0){
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // PANEL AREA
+    // PANEL BOX
     ctx.fillStyle="black";
     ctx.fillRect(120,120,700,200);
 
@@ -140,7 +141,7 @@ function draw(offset=0){
     ctx.shadowBlur=0;
 }
 
-/* LOOP */
+/* LIVE LOOP */
 function loop(){
     t++;
     draw(t % 300);
@@ -148,7 +149,7 @@ function loop(){
 }
 loop();
 
-/* PNG EXPORT (FIXED) */
+/* PNG EXPORT */
 function downloadPNG(){
 
     if(!data){
@@ -162,7 +163,6 @@ function downloadPNG(){
 
     const tctx = temp.getContext("2d");
 
-    // redraw panel přesně
     tctx.fillStyle="black";
     tctx.fillRect(0,0,temp.width,temp.height);
 
@@ -180,67 +180,46 @@ function downloadPNG(){
     a.click();
 }
 
-/* MP4 EXPORT (REAL via ffmpeg.wasm) */
-async function exportMP4(){
+/* ===== APNG EXPORT ===== */
+function exportAPNG(){
 
     if(!data){
         alert("Nejsou data!");
         return;
     }
 
-    alert("MP4 se renderuje... může trvat pár sekund 😄");
+    const framesCount = parseInt(document.getElementById("frames").value) || 20;
 
-    const stream = canvas.captureStream(30);
-    const recorder = new MediaRecorder(stream, {
-        mimeType: "video/webm"
+    const frames = [];
+
+    for(let i=0;i<framesCount;i++){
+
+        draw(i*8);
+
+        const frameCanvas = document.createElement("canvas");
+        frameCanvas.width = canvas.width;
+        frameCanvas.height = canvas.height;
+
+        const fctx = frameCanvas.getContext("2d");
+        fctx.drawImage(canvas,0,0);
+
+        frames.push(frameCanvas);
+    }
+
+    const apng = new APNG(frames, {
+        delay: 80
     });
 
-    let chunks = [];
-
-    recorder.ondataavailable = e => chunks.push(e.data);
-
-    recorder.onstop = async () => {
-
-        const webmBlob = new Blob(chunks, {type:"video/webm"});
-
-        // ===== KONVERZE NA MP4 =====
-        const { createFFmpeg, fetchFile } = FFmpeg;
-        const ffmpeg = createFFmpeg({ log: false });
-
-        await ffmpeg.load();
-
-        ffmpeg.FS('writeFile', 'input.webm', await fetchFile(webmBlob));
-
-        await ffmpeg.run(
-            '-i', 'input.webm',
-            '-c:v', 'libx264',
-            '-pix_fmt', 'yuv420p',
-            'output.mp4'
-        );
-
-        const data = ffmpeg.FS('readFile', 'output.mp4');
-
-        const mp4Blob = new Blob([data.buffer], {type:'video/mp4'});
-
+    apng.toBlob().then(blob=>{
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(mp4Blob);
-        a.download = "mhd_panel.mp4";
+        a.href = URL.createObjectURL(blob);
+        a.download = "mhd_panel.apng";
         a.click();
-    };
+    });
 
-    recorder.start();
-
-    let sec = parseInt(document.getElementById("duration").value) || 5;
-
-    setTimeout(()=>{
-        recorder.stop();
-    }, sec * 1000);
 }
 
 </script>
-
-<!-- FFmpeg WASM -->
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
 
 </body>
 </html>
