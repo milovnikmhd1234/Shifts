@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHD DP DOT MATRIX PANEL</title>
+<title>MHD DP Panel System</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
@@ -16,7 +16,6 @@ body{
     font-family:'Press Start 2P', monospace;
 }
 
-/* SIDEBAR */
 .sidebar{
     width:340px;
     background:#0b0f0b;
@@ -47,7 +46,6 @@ button{
     font-size:10px;
 }
 
-/* MAIN */
 .main{
     flex:1;
     padding:10px;
@@ -62,143 +60,145 @@ canvas{
 
 <body>
 
-<!-- SIDEBAR -->
 <div class="sidebar">
 
-<h3>🚌 MHD DP PANEL</h3>
+<h3>🚌 DP PANEL</h3>
 
 <input id="line" placeholder="Linka (213)">
-<input id="direction" placeholder="Směr (Krnov → Opava)">
+<input id="dir" placeholder="Směr (Krnov → Opava)">
 <textarea id="stops" placeholder="Krnov;Bruntál;Opava"></textarea>
-<input id="speed" type="number" placeholder="speed (1–10)">
+<input id="speed" type="number" placeholder="Speed (1–10)">
 
-<button onclick="addRoute()">➕ Přidat / aktualizovat</button>
+<hr>
 
-<button onclick="downloadPNG()">⬇ PNG</button>
-<button onclick="exportGIF()">🎞 GIF</button>
+<h4>🎬 Export nastavení</h4>
+<input id="duration" type="number" placeholder="Délka videa (sekundy)" value="5">
+
+<button onclick="setData()">➕ Nastavit / aktualizovat</button>
+
+<button onclick="downloadPNG()">⬇ PNG (jen panel)</button>
+<button onclick="exportVideo()">🎞 MP4 / WebM export</button>
 
 </div>
 
-<!-- MAIN -->
 <div class="main">
 <canvas id="c" width="900" height="450"></canvas>
 </div>
-
-<script src="https://unpkg.com/gif.js.optimized/dist/gif.js"></script>
 
 <script>
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
-let route = null;
-let frame = 0;
+let data = null;
+let t = 0;
 
-/* ADD / UPDATE ROUTE */
-function addRoute(){
+/* SET DATA */
+function setData(){
 
-    route = {
-        line: document.getElementById("line").value || "0",
-        dir: document.getElementById("direction").value || "",
-        stops: (document.getElementById("stops").value || "").split(";"),
-        speed: parseInt(document.getElementById("speed").value) || 5
+    data = {
+        line: line.value || "0",
+        dir: dir.value || "",
+        stops: stops.value.split(";"),
+        speed: parseInt(speed.value) || 5
     };
-
-    draw();
 }
 
-/* DOT MATRIX GRID */
-function drawGrid(){
-
-    ctx.fillStyle="#003300";
-
-    for(let x=0;x<canvas.width;x+=10){
-        for(let y=0;y<canvas.height;y+=10){
-            ctx.fillRect(x,y,1,1);
-        }
-    }
-}
-
-/* RENDER PANEL */
+/* DRAW DP PANEL */
 function draw(offset=0){
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
+    // PANEL AREA
     ctx.fillStyle="black";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillRect(120,100,700,220);
 
-    drawGrid();
+    // DOT MATRIX GRID
+    ctx.fillStyle="#002200";
+    for(let x=120;x<820;x+=10){
+        for(let y=100;y<320;y+=10){
+            ctx.fillRect(x,y,1,1);
+        }
+    }
 
-    ctx.fillStyle="#00ff66";
-    ctx.shadowColor="#00ff66";
-    ctx.shadowBlur=10;
-    ctx.font="26px 'Press Start 2P'";
-
-    if(!route){
-        ctx.fillText("NAČTI DATA...",20,80);
+    if(!data){
+        ctx.fillStyle="#00ff66";
+        ctx.font="18px Press Start 2P";
+        ctx.fillText("NAČTI DATA",140,180);
         return;
     }
 
     const text =
-    `${route.line} | ${route.dir} | ${route.stops.join(" → ")}`;
+    `${data.line} | ${data.dir} | ${data.stops.join(" → ")}`;
 
-    ctx.fillText(text, 20 - offset, 80);
+    ctx.fillStyle="#00ff66";
+    ctx.shadowColor="#00ff66";
+    ctx.shadowBlur=10;
+    ctx.font="18px Press Start 2P";
+
+    ctx.fillText(text, 140 - offset, 180);
 
     ctx.shadowBlur=0;
 }
 
-/* LIVE ANIMATION LOOP */
-function animate(){
-    frame++;
-    draw(frame % 300);
-    requestAnimationFrame(animate);
+/* ANIMATION LOOP */
+function loop(){
+    t++;
+    draw(t % 300);
+    requestAnimationFrame(loop);
 }
-animate();
+loop();
 
-/* PNG EXPORT (100% WORKING) */
+/* PNG EXPORT (ONLY PANEL AREA) */
 function downloadPNG(){
+
+    const temp = document.createElement("canvas");
+    temp.width = 700;
+    temp.height = 220;
+
+    const tctx = temp.getContext("2d");
+
+    tctx.drawImage(
+        canvas,
+        120,100,700,220,
+        0,0,700,220
+    );
+
     const a = document.createElement("a");
-    a.download="mhd_panel.png";
-    a.href=canvas.toDataURL("image/png");
+    a.download = "mhd_panel.png";
+    a.href = temp.toDataURL("image/png");
     a.click();
 }
 
-/* GIF EXPORT (FIXED + STABLE) */
-function exportGIF(){
+/* VIDEO EXPORT (USER DEFINED DURATION) */
+function exportVideo(){
 
-    if(!route){
-        alert("Nejsou data!");
-        return;
-    }
+    const stream = canvas.captureStream(30);
 
-    const gif = new GIF({
-        workers:2,
-        quality:10,
-        width:canvas.width,
-        height:canvas.height,
-        workerScript:"https://unpkg.com/gif.js.optimized/dist/gif.worker.js"
+    const recorder = new MediaRecorder(stream, {
+        mimeType: "video/webm"
     });
 
-    let frames = 25;
+    let chunks = [];
 
-    for(let i=0;i<frames;i++){
+    recorder.ondataavailable = e => chunks.push(e.data);
 
-        draw(i * 8);
-
-        gif.addFrame(ctx, {
-            copy:true,
-            delay:80
-        });
-    }
-
-    gif.on("finished", function(blob){
+    recorder.onstop = () => {
+        const blob = new Blob(chunks, {type:"video/webm"});
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = "mhd_panel.gif";
+        a.download = "mhd_panel.webm";
         a.click();
-    });
+    };
 
-    gif.render();
+    recorder.start();
+
+    // ===== USER DURATION =====
+    let sec = parseInt(document.getElementById("duration").value) || 5;
+
+    setTimeout(()=>{
+        recorder.stop();
+    }, sec * 1000);
 }
 
 </script>
