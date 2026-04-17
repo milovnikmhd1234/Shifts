@@ -3,9 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHD DP APNG PANEL</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<title>DP DOT MATRIX PANEL</title>
 
 <style>
 body{
@@ -13,7 +11,7 @@ body{
     display:flex;
     background:black;
     color:#00ff66;
-    font-family:'Press Start 2P', monospace;
+    font-family:monospace;
 }
 
 .sidebar{
@@ -30,8 +28,6 @@ input, textarea{
     background:black;
     color:#00ff66;
     border:1px solid #333;
-    font-family:'Press Start 2P';
-    font-size:10px;
 }
 
 button{
@@ -41,7 +37,6 @@ button{
     background:#111;
     color:#00ff66;
     border:1px solid #333;
-    cursor:pointer;
 }
 
 .main{
@@ -66,13 +61,13 @@ canvas{
 <input id="dir" placeholder="Směr">
 <textarea id="stops" placeholder="Krnov;Bruntál;Opava"></textarea>
 
-<input id="speed" type="number" placeholder="speed (1–10)">
-<input id="frames" type="number" placeholder="frames (např. 20)" value="20">
+<input id="scale" type="number" value="4" placeholder="Velikost textu (2–8)">
+<input id="frames" type="number" value="20" placeholder="Frames APNG">
 
 <button onclick="setData()">➕ Nastavit</button>
 
 <button onclick="downloadPNG()">⬇ PNG</button>
-<button onclick="exportAPNG()">🎞 APNG export</button>
+<button onclick="exportAPNG()">🎞 APNG</button>
 
 </div>
 
@@ -80,7 +75,6 @@ canvas{
 <canvas id="c" width="900" height="450"></canvas>
 </div>
 
-<!-- APNG encoder -->
 <script src="https://cdn.jsdelivr.net/npm/apng-js@2.0.0/dist/apng.min.js"></script>
 
 <script>
@@ -91,17 +85,57 @@ const ctx = canvas.getContext("2d");
 let data = null;
 let t = 0;
 
+/* DOT MATRIX FONT (jednoduchý bitmap) */
+const font = {
+"A":[[0,1,0],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
+"B":[[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,1,0]],
+"0":[[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
+"1":[[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],
+"2":[[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]],
+"3":[[1,1,1],[0,0,1],[0,1,1],[0,0,1],[1,1,1]],
+"-":[[0,0,0],[0,0,0],[1,1,1],[0,0,0],[0,0,0]],
+">":[[1,0,0],[0,1,0],[0,0,1],[0,1,0],[1,0,0]],
+" ":[[0],[0],[0],[0],[0]]
+};
+
+/* DRAW DOT CHAR */
+function drawChar(ch,x,y,scale){
+
+    const map = font[ch] || font[" "];
+
+    for(let row=0; row<map.length; row++){
+        for(let col=0; col<map[row].length; col++){
+            if(map[row][col]){
+                ctx.fillRect(
+                    x + col*scale,
+                    y + row*scale,
+                    scale-1,
+                    scale-1
+                );
+            }
+        }
+    }
+
+    return map[0].length * scale + scale;
+}
+
+/* DRAW TEXT */
+function drawText(text,x,y,scale){
+
+    let offset = 0;
+
+    for(let ch of text){
+        offset += drawChar(ch,x+offset,y,scale);
+    }
+}
+
 /* SET DATA */
 function setData(){
-
     data = {
-        line: line.value || "0",
+        line: line.value || "",
         dir: dir.value || "",
-        stops: stops.value.split(";"),
-        speed: parseInt(speed.value) || 5
+        stops: stops.value.split(";")
     };
-
-    draw();
 }
 
 /* DRAW PANEL */
@@ -109,12 +143,10 @@ function draw(offset=0){
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // PANEL BOX
     ctx.fillStyle="black";
     ctx.fillRect(120,120,700,200);
 
-    // DOT MATRIX GRID
-    ctx.fillStyle="#002200";
+    ctx.fillStyle="#003300";
     for(let x=120;x<820;x+=10){
         for(let y=120;y<320;y+=10){
             ctx.fillRect(x,y,1,1);
@@ -122,26 +154,20 @@ function draw(offset=0){
     }
 
     if(!data){
-        ctx.fillStyle="#00ff66";
-        ctx.font="18px Press Start 2P";
-        ctx.fillText("NAČTI DATA",140,200);
         return;
     }
 
+    const scale = parseInt(document.getElementById("scale").value) || 4;
+
     const text =
-    `${data.line} | ${data.dir} | ${data.stops.join(" → ")}`;
+    `${data.line} ${data.dir} ${data.stops.join(" → ")}`;
 
     ctx.fillStyle="#00ff66";
-    ctx.shadowColor="#00ff66";
-    ctx.shadowBlur=10;
-    ctx.font="18px Press Start 2P";
 
-    ctx.fillText(text, 140 - offset, 200);
-
-    ctx.shadowBlur=0;
+    drawText(text,140-offset,180,scale);
 }
 
-/* LIVE LOOP */
+/* LOOP */
 function loop(){
     t++;
     draw(t % 300);
@@ -152,10 +178,7 @@ loop();
 /* PNG EXPORT */
 function downloadPNG(){
 
-    if(!data){
-        alert("Nejsou data!");
-        return;
-    }
+    if(!data) return alert("Nejsou data!");
 
     const temp = document.createElement("canvas");
     temp.width = 700;
@@ -163,60 +186,49 @@ function downloadPNG(){
 
     const tctx = temp.getContext("2d");
 
-    tctx.fillStyle="black";
-    tctx.fillRect(0,0,temp.width,temp.height);
-
-    tctx.fillStyle="#00ff66";
-    tctx.font="18px Press Start 2P";
+    const scale = parseInt(document.getElementById("scale").value) || 4;
 
     const text =
-    `${data.line} | ${data.dir} | ${data.stops.join(" → ")}`;
+    `${data.line} ${data.dir} ${data.stops.join(" → ")}`;
 
-    tctx.fillText(text,20,100);
+    tctx.fillStyle="#00ff66";
+    drawText.call({fillRect:tctx.fillRect.bind(tctx)}, text,20,80,scale);
 
     const a = document.createElement("a");
-    a.download="mhd_panel.png";
-    a.href=temp.toDataURL("image/png");
+    a.href = temp.toDataURL();
+    a.download = "panel.png";
     a.click();
 }
 
-/* ===== APNG EXPORT ===== */
+/* APNG EXPORT */
 function exportAPNG(){
 
-    if(!data){
-        alert("Nejsou data!");
-        return;
-    }
+    if(!data) return alert("Nejsou data!");
 
-    const framesCount = parseInt(document.getElementById("frames").value) || 20;
+    const framesCount = parseInt(frames.value) || 20;
 
-    const frames = [];
+    const framesArr = [];
 
     for(let i=0;i<framesCount;i++){
+        draw(i*6);
 
-        draw(i*8);
+        const f = document.createElement("canvas");
+        f.width = canvas.width;
+        f.height = canvas.height;
 
-        const frameCanvas = document.createElement("canvas");
-        frameCanvas.width = canvas.width;
-        frameCanvas.height = canvas.height;
+        f.getContext("2d").drawImage(canvas,0,0);
 
-        const fctx = frameCanvas.getContext("2d");
-        fctx.drawImage(canvas,0,0);
-
-        frames.push(frameCanvas);
+        framesArr.push(f);
     }
 
-    const apng = new APNG(frames, {
-        delay: 80
-    });
+    const apng = new APNG(framesArr,{delay:80});
 
     apng.toBlob().then(blob=>{
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = "mhd_panel.apng";
+        a.download = "panel.apng";
         a.click();
     });
-
 }
 
 </script>
