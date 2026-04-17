@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHD DP Panel System</title>
+<title>MHD DP DOT MATRIX PANEL</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
@@ -24,7 +24,7 @@ body{
     padding:10px;
 }
 
-input, textarea, select{
+input, textarea{
     width:100%;
     margin-top:6px;
     padding:6px;
@@ -57,26 +57,6 @@ canvas{
     background:black;
     border:1px solid #222;
 }
-
-/* anim container */
-.panelBox{
-    margin-top:10px;
-    border:1px solid #222;
-    overflow:hidden;
-    height:30px;
-    position:relative;
-}
-
-.scroll{
-    position:absolute;
-    white-space:nowrap;
-    animation:move linear infinite;
-}
-
-@keyframes move{
-    0%{transform:translateX(100%)}
-    100%{transform:translateX(-100%)}
-}
 </style>
 </head>
 
@@ -85,32 +65,23 @@ canvas{
 <!-- SIDEBAR -->
 <div class="sidebar">
 
-<h3>🚌 MHD PANEL SYSTEM</h3>
+<h3>🚌 MHD DP PANEL</h3>
 
-<input id="line" placeholder="Linka (např. 213)">
+<input id="line" placeholder="Linka (213)">
 <input id="direction" placeholder="Směr (Krnov → Opava)">
 <textarea id="stops" placeholder="Krnov;Bruntál;Opava"></textarea>
+<input id="speed" type="number" placeholder="speed (1–10)">
 
-<input id="speed" type="number" placeholder="speed (např. 8 = rychlost)">
-
-<button onclick="addRoute()">➕ Přidat linku</button>
+<button onclick="addRoute()">➕ Přidat / aktualizovat</button>
 
 <button onclick="downloadPNG()">⬇ PNG</button>
 <button onclick="exportGIF()">🎞 GIF</button>
-
-<div id="list"></div>
 
 </div>
 
 <!-- MAIN -->
 <div class="main">
-
-<canvas id="c" width="850" height="450"></canvas>
-
-<div id="live" class="panelBox">
-    <div class="scroll">čekám na data...</div>
-</div>
-
+<canvas id="c" width="900" height="450"></canvas>
 </div>
 
 <script src="https://unpkg.com/gif.js.optimized/dist/gif.js"></script>
@@ -120,74 +91,71 @@ canvas{
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
-let routes = [];
-let activeText = "";
+let route = null;
+let frame = 0;
 
-/* ADD ROUTE */
+/* ADD / UPDATE ROUTE */
 function addRoute(){
 
-    const line = document.getElementById("line").value;
-    const dir = document.getElementById("direction").value;
-    const stops = document.getElementById("stops").value.split(";");
-    const speed = parseInt(document.getElementById("speed").value) || 6;
+    route = {
+        line: document.getElementById("line").value || "0",
+        dir: document.getElementById("direction").value || "",
+        stops: (document.getElementById("stops").value || "").split(";"),
+        speed: parseInt(document.getElementById("speed").value) || 5
+    };
 
-    if(!line || !dir || stops.length < 2){
-        alert("Vyplň vše!");
-        return;
+    draw();
+}
+
+/* DOT MATRIX GRID */
+function drawGrid(){
+
+    ctx.fillStyle="#003300";
+
+    for(let x=0;x<canvas.width;x+=10){
+        for(let y=0;y<canvas.height;y+=10){
+            ctx.fillRect(x,y,1,1);
+        }
     }
-
-    routes.push({line, dir, stops, speed});
-    renderList();
 }
 
-/* LIST */
-function renderList(){
-
-    const div = document.getElementById("list");
-    div.innerHTML = "";
-
-    routes.forEach(r=>{
-
-        const el = document.createElement("div");
-        el.className="panelBox";
-
-        const text =
-        `🚌 ${r.line} | ${r.dir} | ${r.stops.join(" → ")}`;
-
-        el.innerHTML = `<div class="scroll" style="animation-duration:${r.speed}s">${text}</div>`;
-
-        div.appendChild(el);
-    });
-}
-
-/* DRAW DP DISPLAY */
-function draw(text){
+/* RENDER PANEL */
+function draw(offset=0){
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
     ctx.fillStyle="black";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // LED GRID
-    ctx.fillStyle="#002200";
-    for(let x=0;x<canvas.width;x+=10){
-        for(let y=0;y<canvas.height;y+=10){
-            ctx.fillRect(x,y,1,1);
-        }
-    }
+    drawGrid();
 
-    // TEXT
     ctx.fillStyle="#00ff66";
     ctx.shadowColor="#00ff66";
     ctx.shadowBlur=10;
     ctx.font="26px 'Press Start 2P'";
 
-    ctx.fillText(text || "DP SYSTEM READY", 20, 80);
+    if(!route){
+        ctx.fillText("NAČTI DATA...",20,80);
+        return;
+    }
+
+    const text =
+    `${route.line} | ${route.dir} | ${route.stops.join(" → ")}`;
+
+    ctx.fillText(text, 20 - offset, 80);
 
     ctx.shadowBlur=0;
 }
 
-/* PNG */
+/* LIVE ANIMATION LOOP */
+function animate(){
+    frame++;
+    draw(frame % 300);
+    requestAnimationFrame(animate);
+}
+animate();
+
+/* PNG EXPORT (100% WORKING) */
 function downloadPNG(){
     const a = document.createElement("a");
     a.download="mhd_panel.png";
@@ -195,8 +163,13 @@ function downloadPNG(){
     a.click();
 }
 
-/* GIF EXPORT (REAL) */
+/* GIF EXPORT (FIXED + STABLE) */
 function exportGIF(){
+
+    if(!route){
+        alert("Nejsou data!");
+        return;
+    }
 
     const gif = new GIF({
         workers:2,
@@ -210,31 +183,12 @@ function exportGIF(){
 
     for(let i=0;i<frames;i++){
 
-        let offset = i * 10;
+        draw(i * 8);
 
-        ctx.fillStyle="black";
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-
-        // grid
-        ctx.fillStyle="#002200";
-        for(let x=0;x<canvas.width;x+=10){
-            for(let y=0;y<canvas.height;y+=10){
-                ctx.fillRect(x,y,1,1);
-            }
-        }
-
-        ctx.fillStyle="#00ff66";
-        ctx.font="26px Press Start 2P";
-        ctx.shadowBlur=10;
-
-        let txt =
-        routes[0]
-        ? `${routes[0].line} | ${routes[0].dir} | ${routes[0].stops.join(" → ")}`
-        : "MHD PANEL";
-
-        ctx.fillText(txt, 20 - offset, 100);
-
-        gif.addFrame(ctx, {copy:true, delay:80});
+        gif.addFrame(ctx, {
+            copy:true,
+            delay:80
+        });
     }
 
     gif.on("finished", function(blob){
@@ -246,9 +200,6 @@ function exportGIF(){
 
     gif.render();
 }
-
-/* START */
-draw();
 
 </script>
 
