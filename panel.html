@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHD DP Panel System</title>
+<title>MHD DP PANEL FINAL</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
@@ -64,20 +64,18 @@ canvas{
 
 <h3>🚌 DP PANEL</h3>
 
-<input id="line" placeholder="Linka (213)">
-<input id="dir" placeholder="Směr (Krnov → Opava)">
+<input id="line" placeholder="Linka">
+<input id="dir" placeholder="Směr">
 <textarea id="stops" placeholder="Krnov;Bruntál;Opava"></textarea>
-<input id="speed" type="number" placeholder="Speed (1–10)">
 
-<hr>
+<input id="speed" type="number" placeholder="Speed">
 
-<h4>🎬 Export nastavení</h4>
-<input id="duration" type="number" placeholder="Délka videa (sekundy)" value="5">
+<input id="duration" type="number" placeholder="Video délka (sekundy)" value="5">
 
-<button onclick="setData()">➕ Nastavit / aktualizovat</button>
+<button onclick="setData()">➕ Nastavit</button>
 
-<button onclick="downloadPNG()">⬇ PNG (jen panel)</button>
-<button onclick="exportVideo()">🎞 MP4 / WebM export</button>
+<button onclick="downloadPNG()">⬇ PNG</button>
+<button onclick="exportMP4()">🎞 MP4 export</button>
 
 </div>
 
@@ -95,28 +93,29 @@ let t = 0;
 
 /* SET DATA */
 function setData(){
-
     data = {
         line: line.value || "0",
         dir: dir.value || "",
         stops: stops.value.split(";"),
         speed: parseInt(speed.value) || 5
     };
+
+    draw();
 }
 
-/* DRAW DP PANEL */
+/* DRAW PANEL */
 function draw(offset=0){
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
     // PANEL AREA
     ctx.fillStyle="black";
-    ctx.fillRect(120,100,700,220);
+    ctx.fillRect(120,120,700,200);
 
     // DOT MATRIX GRID
     ctx.fillStyle="#002200";
     for(let x=120;x<820;x+=10){
-        for(let y=100;y<320;y+=10){
+        for(let y=120;y<320;y+=10){
             ctx.fillRect(x,y,1,1);
         }
     }
@@ -124,7 +123,7 @@ function draw(offset=0){
     if(!data){
         ctx.fillStyle="#00ff66";
         ctx.font="18px Press Start 2P";
-        ctx.fillText("NAČTI DATA",140,180);
+        ctx.fillText("NAČTI DATA",140,200);
         return;
     }
 
@@ -136,12 +135,12 @@ function draw(offset=0){
     ctx.shadowBlur=10;
     ctx.font="18px Press Start 2P";
 
-    ctx.fillText(text, 140 - offset, 180);
+    ctx.fillText(text, 140 - offset, 200);
 
     ctx.shadowBlur=0;
 }
 
-/* ANIMATION LOOP */
+/* LOOP */
 function loop(){
     t++;
     draw(t % 300);
@@ -149,32 +148,49 @@ function loop(){
 }
 loop();
 
-/* PNG EXPORT (ONLY PANEL AREA) */
+/* PNG EXPORT (FIXED) */
 function downloadPNG(){
+
+    if(!data){
+        alert("Nejsou data!");
+        return;
+    }
 
     const temp = document.createElement("canvas");
     temp.width = 700;
-    temp.height = 220;
+    temp.height = 200;
 
     const tctx = temp.getContext("2d");
 
-    tctx.drawImage(
-        canvas,
-        120,100,700,220,
-        0,0,700,220
-    );
+    // redraw panel přesně
+    tctx.fillStyle="black";
+    tctx.fillRect(0,0,temp.width,temp.height);
+
+    tctx.fillStyle="#00ff66";
+    tctx.font="18px Press Start 2P";
+
+    const text =
+    `${data.line} | ${data.dir} | ${data.stops.join(" → ")}`;
+
+    tctx.fillText(text,20,100);
 
     const a = document.createElement("a");
-    a.download = "mhd_panel.png";
-    a.href = temp.toDataURL("image/png");
+    a.download="mhd_panel.png";
+    a.href=temp.toDataURL("image/png");
     a.click();
 }
 
-/* VIDEO EXPORT (USER DEFINED DURATION) */
-function exportVideo(){
+/* MP4 EXPORT (REAL via ffmpeg.wasm) */
+async function exportMP4(){
+
+    if(!data){
+        alert("Nejsou data!");
+        return;
+    }
+
+    alert("MP4 se renderuje... může trvat pár sekund 😄");
 
     const stream = canvas.captureStream(30);
-
     const recorder = new MediaRecorder(stream, {
         mimeType: "video/webm"
     });
@@ -183,17 +199,37 @@ function exportVideo(){
 
     recorder.ondataavailable = e => chunks.push(e.data);
 
-    recorder.onstop = () => {
-        const blob = new Blob(chunks, {type:"video/webm"});
+    recorder.onstop = async () => {
+
+        const webmBlob = new Blob(chunks, {type:"video/webm"});
+
+        // ===== KONVERZE NA MP4 =====
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: false });
+
+        await ffmpeg.load();
+
+        ffmpeg.FS('writeFile', 'input.webm', await fetchFile(webmBlob));
+
+        await ffmpeg.run(
+            '-i', 'input.webm',
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            'output.mp4'
+        );
+
+        const data = ffmpeg.FS('readFile', 'output.mp4');
+
+        const mp4Blob = new Blob([data.buffer], {type:'video/mp4'});
+
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "mhd_panel.webm";
+        a.href = URL.createObjectURL(mp4Blob);
+        a.download = "mhd_panel.mp4";
         a.click();
     };
 
     recorder.start();
 
-    // ===== USER DURATION =====
     let sec = parseInt(document.getElementById("duration").value) || 5;
 
     setTimeout(()=>{
@@ -202,6 +238,9 @@ function exportVideo(){
 }
 
 </script>
+
+<!-- FFmpeg WASM -->
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
 
 </body>
 </html>
