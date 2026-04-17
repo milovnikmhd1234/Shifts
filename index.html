@@ -1,143 +1,146 @@
-/index.html   → login + menu
-/panel.html   → TVŮJ LED panel (plný kód)
-/```
-
----
-
-# 🔐 1) index.html (login + menu)
-
-```html id="k8s1fd"
 <!DOCTYPE html>
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHD Systém Login</title>
+<title>LED Panel</title>
 
 <style>
 body{
     margin:0;
-    font-family:Arial;
-    background:#0b0f1a;
-    color:white;
+    background:black;
+    color:lime;
+    font-family:monospace;
 }
 
-/* LOGIN */
-.login{
-    max-width:350px;
-    margin:80px auto;
-    background:#12182b;
-    padding:20px;
-    border-radius:15px;
-}
-
-input{
-    width:100%;
+/* top bar */
+.top{
+    background:#111;
     padding:10px;
-    margin-top:10px;
-    border:none;
-    border-radius:8px;
-    background:#1c2440;
     color:white;
-}
-
-button{
-    width:100%;
-    padding:10px;
-    margin-top:10px;
-    border:none;
-    border-radius:10px;
-    background:#3a7bff;
-    color:white;
-}
-
-/* APP */
-.app{
-    display:none;
-    padding:10px;
-}
-
-.menu{
     display:flex;
-    gap:10px;
-    flex-wrap:wrap;
+    justify-content:space-between;
 }
 
-.card{
-    background:#12182b;
-    padding:15px;
-    border-radius:12px;
+/* panel */
+.panel{
+    padding:10px;
+}
+
+/* canvas */
+canvas{
+    background:#000;
+    border:1px solid #333;
     margin-top:10px;
+}
+
+/* buttons */
+button{
+    background:#222;
+    color:white;
+    border:1px solid #444;
+    padding:8px;
+    margin:5px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
-<div class="login" id="loginBox">
-    <h2>Přihlášení</h2>
-    <input id="user" placeholder="Uživatel">
-    <input id="pass" type="password" placeholder="Heslo">
-    <button onclick="login()">Přihlásit</button>
-    <button onclick="register()">Registrovat</button>
+<div class="top">
+    <div>LED PANEL SYSTEM</div>
+    <button onclick="window.location.href='index.html'">Zpět</button>
 </div>
 
-<!-- APP -->
-<div class="app" id="app">
+<div class="panel">
 
-    <div class="menu">
-        <button onclick="openPanel()">LED Panel</button>
-        <button onclick="openForm()">Formulář</button>
-        <button onclick="logout()">Odhlásit</button>
-    </div>
+<h2>Interaktivní LED mapa</h2>
 
-    <div class="card">
-        <h3>Vítej v systému 🚍</h3>
-        <p>Vyber si panel nebo formulář.</p>
-    </div>
+<input id="textInput" placeholder="např. 192 Krnov">
+<button onclick="enableAdd()">Přidat bod</button>
+<button onclick="clearPoints()">Vymazat</button>
+<button onclick="downloadPNG()">Stáhnout PNG</button>
+
+<br>
+
+<canvas id="c" width="700" height="400"></canvas>
 
 </div>
 
 <script>
-// USERS DB (localStorage)
-let users = JSON.parse(localStorage.getItem("users") || "{}");
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
 
-function register(){
-    let u = user.value;
-    let p = pass.value;
+let addMode = false;
+let points = [];
 
-    if(!u || !p) return alert("Vyplň vše");
-
-    users[u] = p;
-    localStorage.setItem("users", JSON.stringify(users));
-
-    alert("Registrováno!");
+// zapnout režim přidání
+function enableAdd(){
+    addMode = true;
+    alert("Klikni do panelu 🎯");
 }
 
-function login(){
-    let u = user.value;
-    let p = pass.value;
+// klik do canvasu
+canvas.addEventListener("click", (e)=>{
+    if(!addMode) return;
 
-    if(users[u] === p){
-        loginBox.style.display="none";
-        app.style.display="block";
-    } else {
-        alert("Špatné údaje");
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const text = document.getElementById("textInput").value || "text";
+
+    points.push({x,y,text});
+
+    addMode = false;
+    draw();
+});
+
+// vykreslení
+function draw(){
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // TEČKY (grid)
+    ctx.fillStyle = "#222";
+    for(let x=0;x<canvas.width;x+=20){
+        for(let y=0;y<canvas.height;y+=20){
+            ctx.fillRect(x,y,2,2);
+        }
+    }
+
+    // body
+    for(let p of points){
+
+        // bod
+        ctx.fillStyle="lime";
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,5,0,Math.PI*2);
+        ctx.fill();
+
+        // text
+        ctx.fillStyle="white";
+        ctx.font="14px monospace";
+        ctx.fillText(p.text, p.x+8, p.y-8);
     }
 }
 
-function logout(){
-    location.reload();
+// vymazat
+function clearPoints(){
+    points = [];
+    draw();
 }
 
-function openPanel(){
-    window.location.href = "panel.html";
+// PNG download
+function downloadPNG(){
+    const link = document.createElement("a");
+    link.download = "led-panel.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
 }
 
-function openForm(){
-    window.open("https://docs.google.com/forms/d/e/1FAIpQLSf4YpFc2PNPb6iF_HiP1MaDgyyS1fI8Kt5uvmAneKRFk4ylYA/viewform?embedded=true");
-}
+// start
+draw();
 </script>
 
 </body>
