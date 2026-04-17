@@ -3,26 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DP / LED Panely</title>
+<title>DP Panel GIF Export</title>
 
-<!-- DOT MATRIX FONT -->
-<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
 <style>
 body{
     margin:0;
     background:black;
     color:#00ff66;
-    font-family:'DotGothic16', monospace;
+    font-family:'Press Start 2P', monospace;
     display:flex;
 }
 
-/* SIDEBAR */
 .sidebar{
-    width:300px;
+    width:320px;
+    padding:10px;
     background:#0b0f0b;
     border-right:1px solid #222;
-    padding:10px;
 }
 
 input, textarea{
@@ -32,7 +30,8 @@ input, textarea{
     background:black;
     color:#00ff66;
     border:1px solid #333;
-    font-family:'DotGothic16', monospace;
+    font-family:'Press Start 2P';
+    font-size:10px;
 }
 
 button{
@@ -43,79 +42,74 @@ button{
     color:#00ff66;
     border:1px solid #333;
     cursor:pointer;
+    font-family:'Press Start 2P';
+    font-size:10px;
 }
 
-/* MAIN PANEL */
 .main{
     flex:1;
     padding:10px;
 }
 
-/* CANVAS DISPLAY */
 canvas{
     background:black;
     border:1px solid #222;
 }
 
-/* LED LIST */
-.marquee{
+.panel{
     margin-top:10px;
-    overflow:hidden;
     border:1px solid #222;
-    padding:6px;
+    height:30px;
+    overflow:hidden;
+    position:relative;
 }
 
-.marquee span{
-    display:inline-block;
+.scroll{
+    position:absolute;
     white-space:nowrap;
-    animation:move 8s linear infinite;
+    animation:scroll 6s linear infinite;
 }
 
-@keyframes move{
+@keyframes scroll{
     0%{transform:translateX(100%)}
     100%{transform:translateX(-100%)}
-}
-
-/* glow efekt */
-.glow{
-    text-shadow:0 0 8px #00ff66;
 }
 </style>
 </head>
 
 <body>
 
-<!-- SIDEBAR -->
 <div class="sidebar">
-<h3>🟢 DP Ovládání</h3>
 
-<input id="liveText" placeholder="LIVE text (hned se zobrazí)">
-<button onclick="downloadPNG()">⬇ PNG export</button>
+<h3>🟢 DP PANEL</h3>
+
+<input id="liveText" placeholder="LIVE text">
+
+<button onclick="downloadPNG()">⬇ PNG</button>
+<button onclick="exportGIF()">🎞 GIF export</button>
 
 <hr>
 
-<h3>🎞️ Animované linky</h3>
+<h4>🎞 Animace</h4>
 
-<textarea id="animInput" placeholder="formát:
-213;Krnov → Opava;Krnov;Bruntál;Opava"></textarea>
+<textarea id="animInput" placeholder="213;Krnov → Opava;Krnov;Bruntál;Opava"></textarea>
 
-<button onclick="addPanel()">Přidat panel</button>
+<button onclick="addPanel()">Přidat</button>
 
-<div id="panelList"></div>
 </div>
 
-<!-- MAIN -->
 <div class="main">
 
-<h2 class="glow">🚌 LED / DP PANEL SYSTEM</h2>
+<canvas id="c" width="800" height="400"></canvas>
 
-<canvas id="c" width="750" height="400"></canvas>
-
-<div id="liveOut" class="marquee glow">
-    <span>čekám na data...</span>
+<div id="liveOut" class="panel">
+    <div class="scroll">čekám...</div>
 </div>
 
 </div>
+
+<!-- GIF.JS -->
+<script src="https://cdn.jsdelivr.net/npm/gif.js.optimized/dist/gif.js"></script>
 
 <script>
 
@@ -126,90 +120,123 @@ let liveText = "";
 let panels = [];
 
 /* LIVE INPUT */
-document.getElementById("liveText").addEventListener("input", (e)=>{
+document.getElementById("liveText").addEventListener("input",(e)=>{
     liveText = e.target.value;
-
-    document.getElementById("liveOut").innerHTML =
-        `<span>${liveText || "..."}</span>`;
-
+    document.querySelector(".scroll").innerText = liveText;
     draw();
 });
 
-/* DRAW LED DISPLAY */
+/* DRAW */
 function draw(){
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // background
     ctx.fillStyle="black";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // LED GRID
+    // grid LED
     ctx.fillStyle="#003300";
-    for(let x=0;x<canvas.width;x+=12){
-        for(let y=0;y<canvas.height;y+=12){
+    for(let x=0;x<canvas.width;x+=10){
+        for(let y=0;y<canvas.height;y+=10){
             ctx.fillRect(x,y,1,1);
         }
     }
 
-    // TEXT glow
-    ctx.shadowColor="#00ff66";
-    ctx.shadowBlur=12;
+    // text
     ctx.fillStyle="#00ff66";
-    ctx.font="28px DotGothic16";
-
-    ctx.fillText(liveText, 20, 60);
-
+    ctx.font="22px 'Press Start 2P'";
+    ctx.shadowColor="#00ff66";
+    ctx.shadowBlur=10;
+    ctx.fillText(liveText,20,60);
     ctx.shadowBlur=0;
 }
 
-/* PNG EXPORT */
+/* PNG */
 function downloadPNG(){
-    const link = document.createElement("a");
-    link.download = "dp_panel.png";
-    link.href = canvas.toDataURL("image/png");
-    link.click();
+    const a = document.createElement("a");
+    a.download="panel.png";
+    a.href=canvas.toDataURL("image/png");
+    a.click();
 }
 
 /* ANIM PANELS */
 function addPanel(){
+    const p = document.getElementById("animInput").value.split(";");
 
-    const raw = document.getElementById("animInput").value;
-    const parts = raw.split(";");
-
-    if(parts.length < 3){
-        alert("Špatný formát!");
+    if(p.length < 3){
+        alert("Špatný formát");
         return;
     }
 
-    const obj = {
-        line: parts[0],
-        direction: parts[1],
-        stops: parts.slice(2)
-    };
+    panels.push({
+        line:p[0],
+        dir:p[1],
+        stops:p.slice(2)
+    });
 
-    panels.push(obj);
     renderPanels();
 }
 
 function renderPanels(){
-
-    const div = document.getElementById("panelList");
-    div.innerHTML = "";
+    const main = document.querySelector(".main");
 
     panels.forEach(p=>{
-
-        const el = document.createElement("div");
-        el.className="marquee glow";
-
-        el.innerHTML =
-        `<span>🚌 ${p.line} | ${p.direction} | ${p.stops.join(" → ")}</span>`;
-
-        div.appendChild(el);
+        const div = document.createElement("div");
+        div.className="panel";
+        div.innerHTML =
+        `<div class="scroll">
+        🚌 ${p.line} | ${p.dir} | ${p.stops.join(" → ")}
+        </div>`;
+        main.appendChild(div);
     });
 }
 
-/* INIT */
+/* ===== REAL GIF EXPORT ===== */
+function exportGIF(){
+
+    const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        width: canvas.width,
+        height: canvas.height
+    });
+
+    let frames = 20;
+    let i = 0;
+
+    function captureFrame(){
+
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        draw();
+
+        ctx.fillStyle="#00ff66";
+        ctx.font="22px Press Start 2P";
+
+        // animace pohybu textu
+        let offset = i * 10;
+        ctx.fillText(liveText + "   ", 20 - offset, 120);
+
+        gif.addFrame(ctx, {copy:true, delay:100});
+
+        i++;
+
+        if(i < frames){
+            captureFrame();
+        } else {
+            gif.on('finished', function(blob){
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "dp_panel.gif";
+                a.click();
+            });
+
+            gif.render();
+        }
+    }
+
+    captureFrame();
+}
+
 draw();
 
 </script>
