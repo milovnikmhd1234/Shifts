@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DP PANEL FINAL FIX</title>
+<title>DP PANEL STABLE</title>
 
 <style>
 body{
@@ -15,7 +15,7 @@ body{
 }
 
 .sidebar{
-    width:340px;
+    width:320px;
     background:#0b0f0b;
     border-right:1px solid #222;
     padding:10px;
@@ -61,11 +61,10 @@ canvas{
 <input id="dir" placeholder="Směr">
 <textarea id="stops" placeholder="Krnov;Bruntál;Opava"></textarea>
 
-<input id="scale" type="number" value="4" placeholder="Velikost textu">
-<input id="frames" type="number" value="20" placeholder="Frames APNG">
+<input id="scale" type="number" value="4">
+<input id="frames" type="number" value="20">
 
 <button onclick="setData()">➕ Nastavit</button>
-
 <button onclick="downloadPNG()">⬇ PNG</button>
 <button onclick="exportAPNG()">🎞 APNG</button>
 
@@ -85,23 +84,20 @@ const ctx = canvas.getContext("2d");
 let data = null;
 let t = 0;
 
-/* DOT FONT (jen základ) */
+/* DOT FONT */
 const font = {
 "0":[[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
 "1":[[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],
 "2":[[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]],
 "3":[[1,1,1],[0,0,1],[0,1,1],[0,0,1],[1,1,1]],
-"-":[[0,0,0],[0,0,0],[1,1,1],[0,0,0],[0,0,0]],
-">":[[1,0,0],[0,1,0],[0,0,1],[0,1,0],[1,0,0]],
 " ":[[0],[0],[0],[0],[0]]
 };
 
 /* DRAW CHAR */
-function drawChar(ch,x,y,scale){
+function drawChar(ctx, ch, x, y, scale){
 
     const map = font[ch];
 
-    // DOT MATRIX
     if(map){
         for(let r=0;r<map.length;r++){
             for(let c=0;c<map[r].length;c++){
@@ -118,7 +114,7 @@ function drawChar(ch,x,y,scale){
         return map[0].length * scale + scale;
     }
 
-    // FALLBACK TEXT
+    // fallback text
     ctx.font = `${scale*4}px monospace`;
     ctx.fillText(ch, x, y + scale*4);
 
@@ -126,32 +122,34 @@ function drawChar(ch,x,y,scale){
 }
 
 /* DRAW TEXT */
-function drawText(text,x,y,scale){
+function drawText(ctx, text, x, y, scale){
 
     let off = 0;
 
     for(let ch of text){
-        off += drawChar(ch,x+off,y,scale);
+        off += drawChar(ctx, ch, x+off, y, scale);
     }
 }
 
 /* SET DATA */
 function setData(){
     data = {
-        line: line.value || "",
-        dir: dir.value || "",
-        stops: stops.value.split(";")
+        line: document.getElementById("line").value,
+        dir: document.getElementById("dir").value,
+        stops: document.getElementById("stops").value.split(";")
     };
 }
 
-/* DRAW PANEL */
+/* DRAW */
 function draw(offset=0){
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
+    // panel
     ctx.fillStyle="black";
     ctx.fillRect(120,120,700,200);
 
+    // grid
     ctx.fillStyle="#003300";
     for(let x=120;x<820;x+=10){
         for(let y=120;y<320;y+=10){
@@ -161,14 +159,14 @@ function draw(offset=0){
 
     if(!data) return;
 
-    const scale = parseInt(scaleInput.value) || 4;
+    const scale = parseInt(document.getElementById("scale").value) || 4;
 
     const text =
     `${data.line} ${data.dir} ${data.stops.join(" → ")}`;
 
     ctx.fillStyle="#00ff66";
 
-    drawText(text,140-offset,180,scale);
+    drawText(ctx, text, 140-offset, 180, scale);
 }
 
 /* LOOP */
@@ -179,7 +177,7 @@ function loop(){
 }
 loop();
 
-/* PNG EXPORT */
+/* PNG */
 function downloadPNG(){
 
     if(!data) return alert("Nejsou data!");
@@ -190,18 +188,14 @@ function downloadPNG(){
 
     const tctx = temp.getContext("2d");
 
-    const scale = parseInt(scaleInput.value) || 4;
-
-    tctx.fillStyle="#00ff66";
+    const scale = parseInt(document.getElementById("scale").value) || 4;
 
     const text =
     `${data.line} ${data.dir} ${data.stops.join(" → ")}`;
 
-    // hack pro reuse drawText
-    const old = ctx;
-    window.ctx = tctx;
-    drawText(text,20,100,scale);
-    window.ctx = old;
+    tctx.fillStyle="#00ff66";
+
+    drawText(tctx, text, 20, 80, scale);
 
     const a = document.createElement("a");
     a.href = temp.toDataURL();
@@ -209,16 +203,17 @@ function downloadPNG(){
     a.click();
 }
 
-/* APNG EXPORT */
+/* APNG */
 function exportAPNG(){
 
     if(!data) return alert("Nejsou data!");
 
-    const framesCount = parseInt(frames.value) || 20;
+    const framesCount = parseInt(document.getElementById("frames").value) || 20;
 
-    const framesArr = [];
+    const arr = [];
 
     for(let i=0;i<framesCount;i++){
+
         draw(i*6);
 
         const f = document.createElement("canvas");
@@ -227,10 +222,10 @@ function exportAPNG(){
 
         f.getContext("2d").drawImage(canvas,0,0);
 
-        framesArr.push(f);
+        arr.push(f);
     }
 
-    const apng = new APNG(framesArr,{delay:80});
+    const apng = new APNG(arr,{delay:80});
 
     apng.toBlob().then(blob=>{
         const a = document.createElement("a");
