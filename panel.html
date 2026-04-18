@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DP DOT MATRIX PANEL</title>
+<title>DP PANEL FINAL FIX</title>
 
 <style>
 body{
@@ -61,7 +61,7 @@ canvas{
 <input id="dir" placeholder="Směr">
 <textarea id="stops" placeholder="Krnov;Bruntál;Opava"></textarea>
 
-<input id="scale" type="number" value="4" placeholder="Velikost textu (2–8)">
+<input id="scale" type="number" value="4" placeholder="Velikost textu">
 <input id="frames" type="number" value="20" placeholder="Frames APNG">
 
 <button onclick="setData()">➕ Nastavit</button>
@@ -85,10 +85,8 @@ const ctx = canvas.getContext("2d");
 let data = null;
 let t = 0;
 
-/* DOT MATRIX FONT (jednoduchý bitmap) */
+/* DOT FONT (jen základ) */
 const font = {
-"A":[[0,1,0],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
-"B":[[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,1,0]],
 "0":[[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
 "1":[[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],
 "2":[[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]],
@@ -98,34 +96,42 @@ const font = {
 " ":[[0],[0],[0],[0],[0]]
 };
 
-/* DRAW DOT CHAR */
+/* DRAW CHAR */
 function drawChar(ch,x,y,scale){
 
-    const map = font[ch] || font[" "];
+    const map = font[ch];
 
-    for(let row=0; row<map.length; row++){
-        for(let col=0; col<map[row].length; col++){
-            if(map[row][col]){
-                ctx.fillRect(
-                    x + col*scale,
-                    y + row*scale,
-                    scale-1,
-                    scale-1
-                );
+    // DOT MATRIX
+    if(map){
+        for(let r=0;r<map.length;r++){
+            for(let c=0;c<map[r].length;c++){
+                if(map[r][c]){
+                    ctx.fillRect(
+                        x + c*scale,
+                        y + r*scale,
+                        scale-1,
+                        scale-1
+                    );
+                }
             }
         }
+        return map[0].length * scale + scale;
     }
 
-    return map[0].length * scale + scale;
+    // FALLBACK TEXT
+    ctx.font = `${scale*4}px monospace`;
+    ctx.fillText(ch, x, y + scale*4);
+
+    return scale*4;
 }
 
 /* DRAW TEXT */
 function drawText(text,x,y,scale){
 
-    let offset = 0;
+    let off = 0;
 
     for(let ch of text){
-        offset += drawChar(ch,x+offset,y,scale);
+        off += drawChar(ch,x+off,y,scale);
     }
 }
 
@@ -153,11 +159,9 @@ function draw(offset=0){
         }
     }
 
-    if(!data){
-        return;
-    }
+    if(!data) return;
 
-    const scale = parseInt(document.getElementById("scale").value) || 4;
+    const scale = parseInt(scaleInput.value) || 4;
 
     const text =
     `${data.line} ${data.dir} ${data.stops.join(" → ")}`;
@@ -186,13 +190,18 @@ function downloadPNG(){
 
     const tctx = temp.getContext("2d");
 
-    const scale = parseInt(document.getElementById("scale").value) || 4;
+    const scale = parseInt(scaleInput.value) || 4;
+
+    tctx.fillStyle="#00ff66";
 
     const text =
     `${data.line} ${data.dir} ${data.stops.join(" → ")}`;
 
-    tctx.fillStyle="#00ff66";
-    drawText.call({fillRect:tctx.fillRect.bind(tctx)}, text,20,80,scale);
+    // hack pro reuse drawText
+    const old = ctx;
+    window.ctx = tctx;
+    drawText(text,20,100,scale);
+    window.ctx = old;
 
     const a = document.createElement("a");
     a.href = temp.toDataURL();
